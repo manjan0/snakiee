@@ -5,21 +5,16 @@
   <title>Manjan’s Snake</title>
   <style>
     body {
-      background: radial-gradient(circle, #2c5364, #203a43, #0f2027);
+      background: linear-gradient(to bottom right, #0f0c29, #302b63, #24243e);
       color: #fff;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
       margin: 0;
+      overflow: hidden;
     }
 
     canvas {
-      background: repeating-linear-gradient(
-        45deg,
-        #111 0px,
-        #111 19px,
-        #1a1a1a 20px,
-        #1a1a1a 39px
-      );
+      background: url('https://www.transparenttextures.com/patterns/stardust.png') repeat, radial-gradient(#101010, #1e1e1e);
       display: block;
       margin: 20px auto;
       border: 3px solid #fff;
@@ -47,70 +42,90 @@
       background: #666;
       transform: scale(1.05);
     }
+
+    #joystick {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: block;
+    }
   </style>
 </head>
 <body>
   <h1 style="text-shadow: 2px 2px 5px #000;">🐍 Manjan’s Snake 🔴</h1>
   <div id="menu">
     <p>Select Difficulty:</p>
-    <button onclick="startGame(150)">Easy</button>
-    <button onclick="startGame(100)">Normal</button>
-    <button onclick="startGame(60)">Hard</button>
+    <button onclick="startGame(50)">Easy</button>
+    <button onclick="startGame(35)">Normal</button>
+    <button onclick="startGame(20)">Hard</button>
   </div>
   <canvas id="game" width="400" height="400" style="display:none;"></canvas>
+  <div id="joystick" style="display:none;"></div>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
-    const box = 20;
     const canvasSize = 400;
-
-    let snake = [];
-    let direction = "RIGHT";
-    let dot;
-    let goldenDot = null;
-    let score = 0;
-    let highScore = localStorage.getItem("snakeHighScore") || 0;
-    let speed;
-    let gameInterval;
-    let paused = false;
+    let snake = [], dot, goldenDot = null;
+    let score = 0, highScore = localStorage.getItem("snakeHighScore") || 0;
+    let vel = { x: 2, y: 0 }, joyCenter = { x: 0, y: 0 }, joyActive = false;
+    let speed = 35, playing = false;
+    let lastUpdateTime = 0;
 
     function startGame(selectedSpeed) {
+      speed = selectedSpeed;
       document.getElementById("menu").style.display = "none";
       canvas.style.display = "block";
-      speed = selectedSpeed;
+      document.getElementById("joystick").style.display = "block";
+      createJoystick();
       resetGame();
-      gameInterval = setInterval(drawGame, speed);
+      if (!playing) {
+        playing = true;
+        requestAnimationFrame(gameLoop);
+      }
     }
 
     function resetGame() {
       snake = [{ x: 200, y: 200 }];
-      direction = "RIGHT";
+      vel = { x: 2, y: 0 };
       score = 0;
       dot = spawnDot();
       goldenDot = null;
     }
 
-    function drawGame() {
-      if (paused) return;
+    function gameLoop(timestamp) {
+      if (!lastUpdateTime) lastUpdateTime = timestamp;
+      const delta = timestamp - lastUpdateTime;
 
+      if (delta > speed) {
+        drawGame();
+        lastUpdateTime = timestamp;
+      }
+
+      if (playing) requestAnimationFrame(gameLoop);
+    }
+
+    function drawGame() {
       ctx.fillStyle = "#222";
       ctx.fillRect(0, 0, canvasSize, canvasSize);
 
       for (let i = 0; i < snake.length; i++) {
         ctx.fillStyle = i === 0 ? "#0f0" : "#0b0";
-        ctx.fillRect(snake[i].x, snake[i].y, box, box);
+        ctx.beginPath();
+        ctx.arc(snake[i].x, snake[i].y, 5, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.fillStyle = "red";
       ctx.beginPath();
-      ctx.arc(dot.x + box / 2, dot.y + box / 2, box / 2, 0, Math.PI * 2);
+      ctx.arc(dot.x, dot.y, 7, 0, Math.PI * 2);
       ctx.fill();
 
       if (goldenDot) {
         ctx.fillStyle = "gold";
         ctx.beginPath();
-        ctx.arc(goldenDot.x + box / 2, goldenDot.y + box / 2, box / 2, 0, Math.PI * 2);
+        ctx.arc(goldenDot.x, goldenDot.y, 7, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -124,17 +139,16 @@
 
     function moveSnake() {
       const head = { ...snake[0] };
+      head.x += vel.x;
+      head.y += vel.y;
 
-      if (direction === "LEFT") head.x -= box;
-      if (direction === "RIGHT") head.x += box;
-      if (direction === "UP") head.y -= box;
-      if (direction === "DOWN") head.y += box;
+      if (head.x < 0) head.x = canvasSize;
+      if (head.x > canvasSize) head.x = 0;
+      if (head.y < 0) head.y = canvasSize;
+      if (head.y > canvasSize) head.y = 0;
 
-      head.x = (head.x + canvasSize) % canvasSize;
-      head.y = (head.y + canvasSize) % canvasSize;
-
-      if (snake.some(part => part.x === head.x && part.y === head.y)) {
-        clearInterval(gameInterval);
+      if (snake.length > 3 && snake.some((part, idx) => idx !== 0 && Math.hypot(part.x - head.x, part.y - head.y) < 10)) {
+        playing = false;
         ctx.fillStyle = "#111";
         ctx.fillRect(0, 0, canvasSize, canvasSize);
         ctx.fillStyle = "red";
@@ -149,21 +163,12 @@
 
       snake.unshift(head);
 
-      if (head.x === dot.x && head.y === dot.y) {
+      if (Math.hypot(head.x - dot.x, head.y - dot.y) < 10) {
         score++;
         dot = spawnDot();
-
-        if (score % 10 === 0) {
-          goldenDot = spawnDot();
-        }
-
-        if (score % 5 === 0 && speed > 40) {
-          clearInterval(gameInterval);
-          speed -= 5;
-          gameInterval = setInterval(drawGame, speed);
-        }
-
-      } else if (goldenDot && head.x === goldenDot.x && head.y === goldenDot.y) {
+        if (score % 10 === 0) goldenDot = spawnDot();
+        if (score % 5 === 0 && speed > 10) speed -= 2;
+      } else if (goldenDot && Math.hypot(head.x - goldenDot.x, head.y - goldenDot.y) < 10) {
         score += 5;
         goldenDot = null;
       } else {
@@ -177,23 +182,47 @@
     }
 
     function spawnDot() {
-      let x, y;
-      do {
-        x = Math.floor(Math.random() * (canvas.width / box)) * box;
-        y = Math.floor(Math.random() * (canvas.height / box)) * box;
-      } while (snake.some(part => part.x === x && part.y === y));
-      return { x, y };
+      return {
+        x: Math.random() * (canvas.width - 20) + 10,
+        y: Math.random() * (canvas.height - 20) + 10
+      };
     }
 
-    document.addEventListener("keydown", (e) => {
-      if ((e.key === "ArrowLeft" || e.key === "a") && direction !== "RIGHT") direction = "LEFT";
-      if ((e.key === "ArrowRight" || e.key === "d") && direction !== "LEFT") direction = "RIGHT";
-      if ((e.key === "ArrowUp" || e.key === "w") && direction !== "DOWN") direction = "UP";
-      if ((e.key === "ArrowDown" || e.key === "s") && direction !== "UP") direction = "DOWN";
+    function createJoystick() {
+      const joystick = document.getElementById("joystick");
+      joystick.innerHTML = '<canvas id="joyCanvas" width="100" height="100" style="border-radius: 50%; background: rgba(255,255,255,0.1);"></canvas>';
+      const joyCanvas = document.getElementById("joyCanvas");
+      const joyCtx = joyCanvas.getContext("2d");
 
-      if (e.key.toLowerCase() === "p") paused = true;
-      if (e.key.toLowerCase() === "r") paused = false;
-    });
+      joyCanvas.addEventListener("touchstart", (e) => {
+        joyActive = true;
+        joyCenter = getTouchPos(e, joyCanvas);
+      });
+
+      joyCanvas.addEventListener("touchmove", (e) => {
+        if (!joyActive) return;
+        const pos = getTouchPos(e, joyCanvas);
+        const dx = pos.x - joyCenter.x;
+        const dy = pos.y - joyCenter.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) {
+          vel.x = (dx / len) * 2.5;
+          vel.y = (dy / len) * 2.5;
+        }
+      });
+
+      joyCanvas.addEventListener("touchend", () => {
+        joyActive = false;
+      });
+    }
+
+    function getTouchPos(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    }
   </script>
 </body>
 </html>
