@@ -10,16 +10,17 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
       margin: 0;
-      overflow: hidden;
+      touch-action: none;
     }
 
     canvas {
-      background: url('https://www.transparenttextures.com/patterns/stardust.png') repeat, radial-gradient(#101010, #1e1e1e);
+      background: radial-gradient(#101010, #1e1e1e);
       display: block;
       margin: 20px auto;
       border: 3px solid #fff;
       box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
       border-radius: 12px;
+      transform: scale(1.1);
     }
 
     #menu {
@@ -45,7 +46,7 @@
 
     #joystick {
       position: fixed;
-      bottom: 30px;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
       display: block;
@@ -56,9 +57,9 @@
   <h1 style="text-shadow: 2px 2px 5px #000;">🐍 Manjan’s Snake 🔴</h1>
   <div id="menu">
     <p>Select Difficulty:</p>
-    <button onclick="startGame(50)">Easy</button>
-    <button onclick="startGame(35)">Normal</button>
-    <button onclick="startGame(20)">Hard</button>
+    <button onclick="startGame(150)">Easy</button>
+    <button onclick="startGame(100)">Normal</button>
+    <button onclick="startGame(60)">Hard</button>
   </div>
   <canvas id="game" width="400" height="400" style="display:none;"></canvas>
   <div id="joystick" style="display:none;"></div>
@@ -70,7 +71,7 @@
     let snake = [], dot, goldenDot = null;
     let score = 0, highScore = localStorage.getItem("snakeHighScore") || 0;
     let vel = { x: 2, y: 0 }, joyCenter = { x: 0, y: 0 }, joyActive = false;
-    let speed = 35, playing = false;
+    let speed = 100, speedCounter = 0, playing = false;
     let lastUpdateTime = 0;
 
     function startGame(selectedSpeed) {
@@ -87,7 +88,7 @@
     }
 
     function resetGame() {
-      snake = [{ x: 200, y: 200 }];
+      snake = [{ x: 200, y: 200, angle: 0 }];
       vel = { x: 2, y: 0 };
       score = 0;
       dot = spawnDot();
@@ -107,14 +108,24 @@
     }
 
     function drawGame() {
-      ctx.fillStyle = "#222";
-      ctx.fillRect(0, 0, canvasSize, canvasSize);
+      ctx.clearRect(0, 0, canvasSize, canvasSize);
 
       for (let i = 0; i < snake.length; i++) {
-        ctx.fillStyle = i === 0 ? "#0f0" : "#0b0";
+        ctx.save();
+        ctx.translate(snake[i].x + 5, snake[i].y + 5);
+        ctx.rotate(Math.atan2(vel.y, vel.x));
+        ctx.fillStyle = i === 0 ? "#33ff33" : "#0b0";
         ctx.beginPath();
-        ctx.arc(snake[i].x, snake[i].y, 5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 6, 0, 2 * Math.PI);
         ctx.fill();
+        if (i === 0) {
+          ctx.fillStyle = "#000";
+          ctx.beginPath();
+          ctx.arc(3, -2, 1.5, 0, 2 * Math.PI);
+          ctx.arc(3, 2, 1.5, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+        ctx.restore();
       }
 
       ctx.fillStyle = "red";
@@ -167,7 +178,7 @@
         score++;
         dot = spawnDot();
         if (score % 10 === 0) goldenDot = spawnDot();
-        if (score % 5 === 0 && speed > 10) speed -= 2;
+        if (score % 5 === 0 && speed > 20) speed -= 5;
       } else if (goldenDot && Math.hypot(head.x - goldenDot.x, head.y - goldenDot.y) < 10) {
         score += 5;
         goldenDot = null;
@@ -206,8 +217,8 @@
         const dy = pos.y - joyCenter.y;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len > 0) {
-          vel.x = (dx / len) * 2.5;
-          vel.y = (dy / len) * 2.5;
+          vel.x = (dx / len) * 3;
+          vel.y = (dy / len) * 3;
         }
       });
 
